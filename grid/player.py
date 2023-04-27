@@ -3,167 +3,68 @@ import numpy as np
 from pygame.locals import *
 from vector import Vector
 from settings import *
-from entity import Entity
-from nodes import *
 
-class Pacman(Entity):
+
+class Pacman:
     def __init__(self,game,node):
-        Entity.__init__(self, node) 
         self.game = game
         self.name = Pacman
         self.color = WHITE
         self.node = node
+        self.speed = 100
         self.directions = {STOP:Vector(0,0), UP:Vector(0,-1), DOWN:Vector(0,1), LEFT:Vector(-1,0), RIGHT:Vector(1,0)}
         self.direction = STOP
         self.radius = 10
         self.target = node
-        self.speed = 1000
-        self.collideradius = 5
+        self.setPosition()
+    
+    def setPosition(self):
+        self.position = self.node.position.copy()
+
+    def update(self,dt):
+        self.position += self.directions[self.direction]*self.speed*dt
+        direction = self.getValidKey()
+        if direction == self.direction*-1:
+            tmp = self.node
+            self.node = self.target
+            self.target = tmp
+            self.direction*=-1
+
+        if self.overshotTarget():
+            self.node = self.target
+            self.target  = self.getNewTarget(direction)
+            self.direction = STOP
+            if self.target is not self.node:
+                self.direction = direction
+            self.setPosition()
+            
+    def getNewTarget(self,direction):
+        if direction is not STOP:
+            if self.node.neighbours[direction] is not None:
+                return self.node.neighbours[direction]
+        return self.node
+
+    def overshotTarget(self):
+        if self.target is not None:
+            vec1 = self.node.position - self.target.position
+            vec2 = self.position - self.node.position
+            node2Target = vec1.magnitudeSquared()
+            node2Self = vec2.magnitudeSquared()
+            return node2Self >= node2Target
+        return False
+
         
 
-    def updateBot(self,action):
-        dir = np.argmax(action)
-        if(dir==1): self.direction = LEFT
-        elif(dir==2): self.direction = UP
-        else: self.direction = RIGHT
-        self.position+=self.directions[self.direction]*self.speed
-        if self.position.asTuple() not in self.game.nodes.nodeslist.keys():
-            return -1,True,-1
-        else:
-            return 1,False,1
 
-    def scatter(self):
-        self.goal = Vector()
-
-    def chase(self):
-        self.goal = self.pacman.position
-
-    def collideGhost(self, ghost):
-        return self.collideCheck(ghost)
-
-    def collideCheck(self, other):
-        d = self.position - other.position
-        dSquared = d.magnitudeSquared()
-        rSquared = (self.collideRadius + other.collideRadius)**2
-        if dSquared <= rSquared:
-            return True
-        return False
-   
-    def eatpellets(self,pellets):
+    def eatPellets(self,pellets):
         for pellet in pellets:
-            d = self.position - pellet.position
+            d = pellet.position - self.position
             ds = d.magnitudeSquared()
-            rs = (pellet.radius+self.collideradius)**2
-            if ds <= rs:
+            rs = self.radius+pellet.collideRadius
+            if ds <=  rs:
                 return pellet
         return None
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    def update(self, dt):	
-        self.position += self.directions[self.direction]*self.speed*dt
-        direction = self.getValidKey()
-        if self.overshotTarget():
-            self.node = self.target
-            if self.node.neighbours[PORTAL] is not None:
-                self.node = self.node.neighbours[PORTAL]
-            self.target = self.getNewTarget(direction)
-            if self.target is not self.node:
-                self.direction = direction
-            else:
-                self.target = self.getNewTarget(self.direction)
-
-            if self.target is self.node:
-                self.direction = STOP
-            self.setPosition()
-        else: 
-            if self.oppositeDirection(direction):
-                self.reverseDirection()
-
-
-    
-
-    
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    
     def getValidKey(self):
         key_pressed = pygame.key.get_pressed()
         if key_pressed[K_UP]:
@@ -176,4 +77,6 @@ class Pacman(Entity):
             return RIGHT
         return STOP
 
-   
+    def render(self):
+        p = self.position.asInt()
+        pygame.draw.circle(self.game.screen,self.color,p,self.radius)

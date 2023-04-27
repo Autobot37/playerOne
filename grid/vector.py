@@ -21,6 +21,7 @@ class Vector:
         return Vector(self.x,self.y)
     
     def __eq__(self, other):
+        if not isinstance(other, Vector): other =Vector(other,other)
         if abs(self.x - other.x) < self.thresh:
             if abs(self.y - other.y) < self.thresh:
                 return True

@@ -1,107 +1,99 @@
-import pygame
-from pygame.locals import *
 from vector import Vector
 from settings import *
-from random import randint
+import pygame 
+import numpy as np
+from pygame.locals import *
 
-class Entity(object):
-    def __init__(self, node):
-        self.name = None
-        self.directions = {UP:Vector(0, -1),DOWN:Vector(0, 1), 
-                          LEFT:Vector(-1, 0), RIGHT:Vector(1, 0), STOP:Vector()}
-        self.direction = STOP
-        self.setSpeed(100)
-        self.radius = 10
-        self.collideRadius = 5
+class Entity:
+    def __init__(self,game,node):
+        self.game = game
+        self.name = Entity
         self.color = WHITE
         self.node = node
-        self.setPosition()
+        self.speed = 100
+        self.directions = {STOP:Vector(0,0), UP:Vector(0,-1), DOWN:Vector(0,1), LEFT:Vector(-1,0), RIGHT:Vector(1,0)}
+        self.direction = STOP
+        self.radius = 10
         self.target = node
-        self.visible = True
-        self.disablePortal = False
-        self.directionMethod = self.randomDirection
-
+        self.setPosition()
+    
     def setPosition(self):
         self.position = self.node.position.copy()
-          
-    def validDirection(self, direction):
+
+    def update(self,dt):
+        self.position += self.directions[self.direction]*self.speed*dt
+        direction = self.chaseDirection()
+        if direction == self.direction*-1:
+            tmp = self.node
+            self.node = self.target
+            self.target = tmp
+            self.direction*=-1
+
+        if self.overshotTarget():
+            self.node = self.target
+            self.target  = self.getNewTarget(direction)
+            self.direction = STOP
+            if self.target is not self.node:
+                self.direction = direction
+            self.setPosition()
+
+    def chaseDirection(self):
+        direction = self.getrandomDirection()
+        maxmeg = 0
+        for dir in self.directions.keys():
+            if dir is not STOP:
+                if (self.position-self.directions[dir]-self.game.pacman.position).magnitudeSquared()>maxmeg:
+                    direction = dir
+                    maxmeg = (self.position-self.directions[dir]-self.game.pacman.position).magnitudeSquared()
+        return direction
+
+    def getrandomDirection(self):      
+        directionsList = []
+        for nei in self.directions.keys():
+            if self.node.neighbours.get(nei) is not None:
+                directionsList.append(nei)
+        randDir = np.random.randint(0, len(directionsList))
+        rdirection = directionsList[randDir]
+        return rdirection
+
+
+
+    def getNewTarget(self,direction):
         if direction is not STOP:
             if self.node.neighbours[direction] is not None:
-                return True
-        return False
-
-    def getNewTarget(self, direction):
-        if self.validDirection(direction):
-            return self.node.neighbours[direction]
+                return self.node.neighbours[direction]
         return self.node
-
-    def goalDirection(self, directions):
-        distances = []
-        for dir in directions:
-            vec = self.node.position + self.directions[dir]
-            distances.append(vec.magnitudeSquared())
-        index = distances.index(min(distances))
-        return directions[index]
-
 
     def overshotTarget(self):
         if self.target is not None:
-            vec1 = self.target.position - self.node.position
+            vec1 = self.node.position - self.target.position
             vec2 = self.position - self.node.position
             node2Target = vec1.magnitudeSquared()
             node2Self = vec2.magnitudeSquared()
             return node2Self >= node2Target
         return False
 
-    def reverseDirection(self):
-        self.direction *= -1
-        temp = self.node
-        self.node = self.target
-        self.target = temp
-        
-    def oppositeDirection(self, direction):
-        if direction is not STOP:
-            if direction == self.direction * -1:
-                return True
-        return False
+    def eatPellets(self,pellets):
+        for pellet in pellets:
+            d = pellet.position - self.position
+            ds = d.magnitudeSquared()
+            rs = self.radius+pellet.collideRadius
+            if ds <=  rs:
+                return pellet
+        return None
 
-    def setSpeed(self, speed):
-        self.speed = speed * TILEWIDTH / 16
+    def getValidKey(self):
+        key_pressed = pygame.key.get_pressed()
+        if key_pressed[K_UP]:
+            return UP
+        if key_pressed[K_DOWN]:
+            return DOWN
+        if key_pressed[K_LEFT]:
+            return LEFT
+        if key_pressed[K_RIGHT]:
+            return RIGHT
+        return STOP
 
-    def render(self, screen):
-        if self.visible:
-            p = self.position.asInt()
-            pygame.draw.circle(screen, self.color, p, self.radius)
-
-    def update(self,dt):
-        self.position += self.directions[self.direction]*self.speed*dt
-         
-        if self.overshotTarget():
-            self.node = self.target
-            directions = self.validDirections()
-            direction = self.directionMethod(directions)   
-            if not self.disablePortal:
-                if self.node.neighbours[PORTAL] is not None:
-                    self.node = self.node.neighbours[PORTAL]
-            self.target = self.getNewTarget(direction)
-            if self.target is not self.node:
-                self.direction = direction
-            else:
-                self.target = self.getNewTarget(self.direction)
-
-            self.setPosition()
-    
-    
-
-    def validDirections(self):
-        directions = []
-        for key in [UP, DOWN, LEFT, RIGHT]:
-            if self.validDirection(key):
-                if key != self.direction * -1:
-                    directions.append(key)
-        if len(directions) == 0:
-            directions.append(self.direction * -1)
-        return directions
-
-    def randomDirection(self, directions):
-        return directions[randint(0, len(directions)-1)]
+    def render(self):
+        p = self.position.asInt()
+        pygame.draw.circle(self.game.screen,self.color,p,self.radius)
