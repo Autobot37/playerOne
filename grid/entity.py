@@ -22,7 +22,7 @@ class Entity:
 
     def update(self,dt):
         self.position += self.directions[self.direction]*self.speed*dt
-        direction = self.chaseDirection()
+        direction = self.getrandomDirection()
         if direction == self.direction*-1:
             tmp = self.node
             self.node = self.target

@@ -14,6 +14,7 @@ class Game:
         self.screen = pygame.display.set_mode(RES)
         self.clock = pygame.time.Clock()
         self.background = pygame.surface.Surface(RES).convert()
+        self.frame_iteration=0
     
     def startGame(self):
         icon = pygame.image.load("grid\lightning(1).jpg")
@@ -25,15 +26,16 @@ class Game:
         self.pellets = PelletGroup("grid\maze.txt")
         self.entity = Entity(self, self.nodes.getGhostNode())
 
-    def update(self):
+    def update(self,action):
         pygame.display.set_caption(f"{self.clock.get_fps():.2f}")
         dt = self.clock.tick(60)/1000
-        self.pacman.update(dt)
+        reward,game_over,done = self.pacman.updateBot(dt,action)
         self.entity.update(dt)
         self.pellets.update(dt)
         self.checkPellet(self.pellets.pelletList)
         self.checkEvents()
         self.render()
+        return reward,game_over,done
     
     def render(self):
         self.screen.blit(self.background,(0,0))
@@ -47,18 +49,28 @@ class Game:
         pellet = self.pacman.eatPellets(pellets)
         if pellet is not None:
             pellets.remove(pellet)
+            self.pellets.numEaten+=1
     
     def checkEvents(self):
         for event in pygame.event.get():
             if event.type == QUIT:
                 exit()
 
-if __name__ == "__main__":
-    game = Game()
-    game.startGame()
-    while True:
-        game.update()
+    def reset(self):
+        self.startGame()
+        self.score = 0
+        self.frame_iteration = 0
 
+    def play_step(self,action):
+        self.startGame()
+        self.frame_iteration+=1
+        for event in pygame.event.get():
+            if event.type == QUIT:
+                exit()
+        
+        reward,game_over,done = self.update(action)
+        reward += self.pellets.numEaten
+        return reward,game_over,done
+    
+    def is_collision(self): return False
 
-    
-    
