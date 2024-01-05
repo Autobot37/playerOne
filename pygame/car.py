@@ -1,15 +1,22 @@
 import pygame
 import math
 import numpy as np
-def softmax(x):
-  exp = np.exp(x- np.max(x,axis=1,keepdims=True))
-  return exp/np.sum(exp,axis=1,keepdims=True)
 
 def predict(w, x):
   logits = np.dot(x,w)
-  softmaxed = softmax(logits)
-  return softmaxed
-
+  #softmaxed = softmax(logits)
+  return logits
+def softmax(x):
+  exp = np.exp(x- np.max(x,axis=1,keepdims=True))
+  return exp/np.sum(exp,axis=1,keepdims=True)
+def relu(x, alpha=0.01):
+    return np.where(x > 0, x, alpha * x)
+def model(weights, X):
+    out = X
+    for i in range(len(weights) - 1):
+        out = relu(predict(weights[i], out))
+    out = softmax(predict(weights[-1], out))
+    return out
 
 class Car:
     def __init__(self,x,y,game):
@@ -17,6 +24,7 @@ class Car:
         self.y = y
         self.speed = 3
         self.angle = 0
+        self.rot = 3
         self.game = game
         self.surface = game.screen
         self.scale_factor = 0.1
@@ -39,7 +47,6 @@ class Car:
         offset = (((self.x - img.get_rect().center[0])),
                   ((self.y - img.get_rect().center[1])))
         poi = mask_background.overlap(mask_img, offset)
-        print(poi)
         return poi
 
     def collision_point(self,x=0,y=0):
@@ -58,10 +65,10 @@ class Car:
         self.angle %= 360
         if keys[pygame.K_LEFT]:
             pressed = str("LEFT")
-            self.angle += 5
+            self.angle += self.rot
         if keys[pygame.K_RIGHT]:
             pressed = str("RIGHT")
-            self.angle -= 5
+            self.angle -= self.rot
 
         angle = math.radians(self.angle)
 
@@ -85,14 +92,15 @@ class Car:
         #     self.x, self.y = old_x, old_y
         #     self.car_rect.center = (round(old_x), round(old_y))
 
-        readings = self.cast_rays(6,100)
+        readings = self.cast_rays(16,150)
         self.game.keys.append(pressed)
-        self.game.data.append(readings)
+        self.game.data.append(readings+[self.angle/360])
+
 
     def update_auto(self):
-        readings = self.cast_rays(6, 100)
+        readings = self.cast_rays(16, 150)
         pressed = "None"
-        key_logit = predict(self.game.weights, np.array(readings).reshape(1,-1))
+        key_logit = model(self.game.weights, np.array(readings+[self.angle/360]).reshape(1,-1))
         key = np.argmax(key_logit)
         if key == 0:
             pressed = "LEFT"
@@ -101,9 +109,9 @@ class Car:
 
         self.angle %= 360
         if pressed == "LEFT":
-            self.angle += 5
+            self.angle += self.rot
         if pressed == "RIGHT":
-            self.angle -= 5
+            self.angle -= self.rot
 
         angle = math.radians(self.angle)
 

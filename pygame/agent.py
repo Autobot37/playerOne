@@ -50,8 +50,8 @@ class Game:
             self.update()
             self.draw()
             self.clock.tick(60)
-        return self.data, self.keys
         pygame.quit()
+        return self.data, self.keys
         sys.exit()
 
 
